@@ -58,9 +58,6 @@ export class ConversationsGateway
     @MessageBody() data: PreSignalDto,
   ) {
     const event = 'pre-signal';
-    console.log(
-      `sending to: ${(this.sockets.get(data.recipientId) as any)?.id}`,
-    );
     const message: PreSignalMessage = {
       event,
       data: {
