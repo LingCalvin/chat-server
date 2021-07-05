@@ -57,7 +57,7 @@ export class AuthController {
     @Body() {}: CredentialsDto,
   ): Promise<SignInResponse> {
     const accessToken = await this.auth.signIn(req.user);
-    res.cookie('accessToken', accessToken);
+    res.cookie('accessToken', accessToken, { httpOnly: true, secure: true });
     const { id, username, createdAt, updatedAt } = req.user;
     return { id, username, createdAt, updatedAt };
   }
