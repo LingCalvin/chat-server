@@ -2,6 +2,7 @@ import {
   ConflictException,
   UnauthorizedException,
   UseFilters,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -16,15 +17,18 @@ import {
 } from '@nestjs/websockets';
 import { IncomingMessage } from 'http';
 import WebSocket from 'ws';
+import { JwtWsGuard } from '../auth/guards/jwt-ws.guard';
 import { JwtPayload } from '../auth/interfaces/jwt-payload';
 import { PreSignalDto } from './dto/pre-signal.dto';
 import { SignalDto } from './dto/signal.dto';
 import { GatewayExceptionFilter } from './exceptions/gateway-exception.filter';
-import { AuthenticatedWebSocket } from './interfaces/authenticated-web-socket';
+import { AuthenticatedWebSocket } from '../auth/interfaces/authenticated-web-socket';
 import { PreSignalMessage } from './messages/pre-signal.message';
 import { SignalMessage } from './messages/signal.message';
+import { parseCookieHeader } from './utils/cookie.utils';
 
 @WebSocketGateway()
+@UseGuards(JwtWsGuard)
 @UseFilters(new GatewayExceptionFilter())
 @UsePipes(new ValidationPipe({ whitelist: true }))
 export class ConversationsGateway
@@ -77,9 +81,9 @@ export class ConversationsGateway
   }
 
   handleConnection(client: WebSocket, request: IncomingMessage) {
-    const accessToken = new URLSearchParams(request.url?.substring(1)).get(
-      'access_token',
-    );
+    const accessToken = parseCookieHeader(
+      request.headers.cookie ?? '',
+    ).accessToken;
     let tokenPayload = null;
 
     // Reject connections that do not have a valid access token
@@ -93,16 +97,20 @@ export class ConversationsGateway
       this.rejectConnection(client);
       return;
     }
+
     // Reject connections from accounts that are already connected
     if (this.sockets.has(tokenPayload.sub)) {
       client.send(JSON.stringify(new ConflictException().getResponse()));
       client.terminate();
       return;
     }
+
     // Add authentication information to the socket
     (client as WebSocket & { id?: string }).id = tokenPayload.sub;
     (client as WebSocket & { username?: string }).username =
       tokenPayload.username;
+    (client as WebSocket & { accessToken?: string }).accessToken = accessToken;
+
     // Add the socket to the list of active sockets
     this.sockets.set(tokenPayload.sub, client);
   }

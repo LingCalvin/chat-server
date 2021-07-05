@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class SignInResponse {
+export class SignUpResponse {
   @ApiProperty({ format: 'uuid' })
   id: string;
   username: string;

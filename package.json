@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@nestjs/common": "^7.6.15",
@@ -32,6 +33,7 @@
     "argon2": "^0.28.2",
     "class-transformer": "^0.4.0",
     "class-validator": "^0.13.1",
+    "cookie-parser": "^1.4.5",
     "helmet": "^4.6.0",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",
@@ -45,6 +47,7 @@
     "@nestjs/cli": "^7.6.0",
     "@nestjs/schematics": "^7.3.0",
     "@nestjs/testing": "^7.6.15",
+    "@types/cookie-parser": "^1.4.2",
     "@types/express": "^4.17.11",
     "@types/jest": "^26.0.22",
     "@types/node": "^14.14.36",
@@ -57,7 +60,9 @@
     "eslint": "^7.22.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-prettier": "^3.3.1",
+    "husky": "^7.0.0",
     "jest": "^26.6.3",
+    "lint-staged": "^11.0.0",
     "prettier": "^2.2.1",
     "prisma": "^2.26.0",
     "supertest": "^6.1.3",
