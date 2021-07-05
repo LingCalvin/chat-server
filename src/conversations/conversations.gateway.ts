@@ -72,6 +72,11 @@ export class ConversationsGateway
     this.sockets.get(data.recipientId)?.send(JSON.stringify(message));
   }
 
+  @SubscribeMessage('ping')
+  handlePing() {
+    return { event: 'ping', data: 'pong' };
+  }
+
   rejectConnection(client: WebSocket) {
     const rejectionResponse = JSON.stringify(
       new UnauthorizedException().getResponse(),
