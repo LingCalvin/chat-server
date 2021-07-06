@@ -123,11 +123,16 @@ export class ConversationsGateway
       return;
     }
 
-    // Revoke the token to prevent it from being used again
-    await this.auth.revokeToken(
-      tokenPayload.jti,
-      new Date(tokenPayload.exp * 1000),
-    );
+    try {
+      // Revoke the token to prevent it from being used again
+      await this.auth.revokeToken(
+        tokenPayload.jti,
+        new Date(tokenPayload.exp * 1000),
+      );
+    } catch {
+      this.rejectConnection(client, 'Invalid ticket.');
+      return;
+    }
 
     // Add authentication information to the socket
     (client as WebSocket & { id?: string }).id = tokenPayload.sub;

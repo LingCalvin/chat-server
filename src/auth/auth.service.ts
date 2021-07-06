@@ -70,7 +70,10 @@ export class AuthService {
   async validateToken(token: string) {
     try {
       const { jti } = this.jwt.verify<JwtPayload>(token);
-      return this.prisma.revokedTokens.findUnique({ where: { jti } }) !== null;
+      return (
+        (await this.prisma.revokedTokens.findUnique({ where: { jti } })) ===
+        null
+      );
     } catch {
       return false;
     }
