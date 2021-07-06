@@ -17,25 +17,25 @@ import {
 } from '@nestjs/websockets';
 import { IncomingMessage } from 'http';
 import WebSocket from 'ws';
-import { JwtWsGuard } from '../auth/guards/jwt-ws.guard';
-import { JwtPayload } from '../auth/interfaces/jwt-payload';
+import { WsGuard } from '../auth/guards/ws.guard';
 import { PreSignalDto } from './dto/pre-signal.dto';
 import { SignalDto } from './dto/signal.dto';
 import { GatewayExceptionFilter } from './exceptions/gateway-exception.filter';
 import { AuthenticatedWebSocket } from '../auth/interfaces/authenticated-web-socket';
 import { PreSignalMessage } from './messages/pre-signal.message';
 import { SignalMessage } from './messages/signal.message';
-import { parseCookieHeader } from './utils/cookie.utils';
+import { AuthService } from '../auth/auth.service';
+import { OneTimeJwtPayload } from '../auth/interfaces/one-time-jwt-payload';
 
 @WebSocketGateway()
-@UseGuards(JwtWsGuard)
+@UseGuards(WsGuard)
 @UseFilters(new GatewayExceptionFilter())
 @UsePipes(new ValidationPipe({ whitelist: true }))
 export class ConversationsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   sockets = new Map<string, WebSocket>();
-  constructor(private jwt: JwtService) {}
+  constructor(private auth: AuthService, private jwt: JwtService) {}
 
   @SubscribeMessage('signal')
   handleSignal(
@@ -77,29 +77,32 @@ export class ConversationsGateway
     return { event: 'ping', data: 'pong' };
   }
 
-  rejectConnection(client: WebSocket) {
+  rejectConnection(client: WebSocket, message?: string) {
     const rejectionResponse = JSON.stringify(
-      new UnauthorizedException().getResponse(),
+      new UnauthorizedException(message).getResponse(),
     );
     client.send(rejectionResponse);
     client.terminate();
   }
 
-  handleConnection(client: WebSocket, request: IncomingMessage) {
-    const accessToken = parseCookieHeader(
-      request.headers.cookie ?? '',
-    ).accessToken;
-    let tokenPayload = null;
+  async handleConnection(client: WebSocket, request: IncomingMessage) {
+    const ticket = new URL(
+      request.url ?? '',
+      `http://${request.headers.host}`,
+    ).searchParams.get('ticket');
+
+    if (!ticket) {
+      this.rejectConnection(client, 'A ticket must be provided.');
+      return;
+    }
+
+    let tokenPayload: OneTimeJwtPayload | null = null;
 
     // Reject connections that do not have a valid access token
     try {
-      tokenPayload = this.jwt.verify(accessToken ?? '') as JwtPayload;
-      if (!tokenPayload) {
-        this.rejectConnection(client);
-        return;
-      }
+      tokenPayload = this.jwt.verify<OneTimeJwtPayload>(ticket);
     } catch {
-      this.rejectConnection(client);
+      this.rejectConnection(client, 'Invalid ticket.');
       return;
     }
 
@@ -110,11 +113,26 @@ export class ConversationsGateway
       return;
     }
 
+    // Check that the token is a single-use token and that it has not been
+    // revoked
+    if (
+      tokenPayload.type !== 'one-time' ||
+      !(await this.auth.validateToken(ticket))
+    ) {
+      this.rejectConnection(client, 'Invalid ticket.');
+      return;
+    }
+
+    // Revoke the token to prevent it from being used again
+    await this.auth.revokeToken(
+      tokenPayload.jti,
+      new Date(tokenPayload.exp * 1000),
+    );
+
     // Add authentication information to the socket
     (client as WebSocket & { id?: string }).id = tokenPayload.sub;
     (client as WebSocket & { username?: string }).username =
       tokenPayload.username;
-    (client as WebSocket & { accessToken?: string }).accessToken = accessToken;
 
     // Add the socket to the list of active sockets
     this.sockets.set(tokenPayload.sub, client);

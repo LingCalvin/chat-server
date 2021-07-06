@@ -9,7 +9,7 @@ import { Observable } from 'rxjs';
 import { PossiblyAuthenticatedWebSocket } from '../interfaces/possibly-authenticated-websocket';
 
 @Injectable()
-export class JwtWsGuard implements CanActivate {
+export class WsGuard implements CanActivate {
   constructor(private jwt: JwtService) {}
   canActivate(
     context: ExecutionContext,
@@ -17,11 +17,9 @@ export class JwtWsGuard implements CanActivate {
     const client: PossiblyAuthenticatedWebSocket = context
       .switchToWs()
       .getClient();
-    try {
-      this.jwt.verify(client.accessToken ?? '');
+    if (client.id && client.username) {
       return true;
-    } catch {
-      throw new UnauthorizedException();
     }
+    throw new UnauthorizedException();
   }
 }

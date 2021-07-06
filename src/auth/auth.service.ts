@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CredentialsDto } from './dto/credentials.dto';
 import { User } from '@prisma/client';
 import { JwtPayload } from './interfaces/jwt-payload';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +36,7 @@ export class AuthService {
 
   async signIn(user: Omit<User, 'password' | 'lastLogin'>) {
     const payload: Omit<JwtPayload, 'exp'> = {
+      jti: uuidv4(),
       sub: user.id,
       username: user.username,
     };
@@ -63,5 +65,18 @@ export class AuthService {
       },
       where: { id },
     });
+  }
+
+  async validateToken(token: string) {
+    try {
+      const { jti } = this.jwt.verify<JwtPayload>(token);
+      return this.prisma.revokedTokens.findUnique({ where: { jti } }) !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  revokeToken(jti: string, exp: Date) {
+    return this.prisma.revokedTokens.create({ data: { jti, exp } });
   }
 }

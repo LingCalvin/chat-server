@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -33,11 +34,13 @@ import { AuthenticatedRequest } from './interfaces/authenticated-request';
 import { SignInResponse } from './responses/sign-in.response';
 import { SignUpResponse } from './responses/sign-up.response';
 import { FailedAuthenticationSchema } from './schema/failed-authentication.schema';
-
+import { v4 as uuidv4 } from 'uuid';
+import { TicketResponse } from './responses/ticket.response';
+import { OneTimeJwtPayload } from './interfaces/one-time-jwt-payload';
 @ApiTags('authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService) {}
+  constructor(private auth: AuthService, private jwt: JwtService) {}
 
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
@@ -102,5 +105,19 @@ export class AuthController {
       throw new ForbiddenException();
     }
     return this.auth.deleteAccount(id);
+  }
+
+  @Post('tickets')
+  @UseGuards(JwtAuthGuard)
+  @ApiCreatedResponse({ type: TicketResponse })
+  createTicket(@Req() req: AuthenticatedRequest): TicketResponse {
+    const payload: Omit<OneTimeJwtPayload, 'exp'> = {
+      jti: uuidv4(),
+      sub: req.user.id,
+      type: 'one-time',
+      username: req.user.username,
+    };
+    const ticket = this.jwt.sign(payload, { expiresIn: '3m' });
+    return { ticket };
   }
 }
