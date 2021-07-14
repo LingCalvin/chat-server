@@ -3,6 +3,7 @@ import {
   ConflictException,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   InternalServerErrorException,
@@ -37,6 +38,7 @@ import { FailedAuthenticationSchema } from './schema/failed-authentication.schem
 import { v4 as uuidv4 } from 'uuid';
 import { TicketResponse } from './responses/ticket.response';
 import { OneTimeJwtPayload } from './interfaces/one-time-jwt-payload';
+import { WhoAmIResponse } from './responses/who-am-i.response';
 @ApiTags('authentication')
 @Controller('auth')
 export class AuthController {
@@ -119,5 +121,12 @@ export class AuthController {
     };
     const ticket = this.jwt.sign(payload, { expiresIn: '3m' });
     return { ticket };
+  }
+
+  @Get('who-am-i')
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ type: WhoAmIResponse })
+  whoAmI(@Req() req: AuthenticatedRequest): WhoAmIResponse {
+    return req.user.jwtPayload;
   }
 }
